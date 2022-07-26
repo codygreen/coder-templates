@@ -71,13 +71,6 @@ data "aws_ami" "ubuntu" {
   }
   owners = ["099720109477"] # Canonical
 }
-
-data "aws_subnet" "coder_public" {
-  tags = {
-    Name = "coder-rtb-public"
-  }
-}
-
 resource "coder_agent" "main" {
   arch = "amd64"
   auth = "aws-instance-identity"
@@ -115,7 +108,7 @@ Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment; filename="userdata.txt"
 
 #!/bin/bash
-sudo -u ${local.linux_user} sh -c '${coder_agent.dev.init_script}'
+sudo -u ${local.linux_user} sh -c '${coder_agent.main.init_script}'
 --//--
 EOT
 
@@ -149,11 +142,61 @@ EOT
 
 }
 
+#
+# Create the VPC
+#
+module "vpc" {
+  source = "terraform-aws-modules/vpc/aws"
+
+  name                 = format("%s-vpc", lower(data.coder_workspace.me.name) )
+  cidr                 = "10.0.0.0/16"
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  #azs = var.availabilityZones
+
+  tags = {
+    Name        = format("%s-vpc", lower(data.coder_workspace.me.name))
+    Terraform   = "true"
+    Environment = "dev"
+  }
+}
+resource "aws_internet_gateway" "gw" {
+  vpc_id = module.vpc.vpc_id
+
+  tags = {
+    Name = "default"
+  }
+}
+resource "aws_route_table" "internet-gw" {
+  vpc_id = module.vpc.vpc_id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.gw.id
+  }
+}
+
+resource "aws_subnet" "public" {
+  vpc_id            = module.vpc.vpc_id
+  cidr_block        = cidrsubnet("10.0.0.0/16", 8, 1)
+  availability_zone = format("%sa", var.region)
+
+  tags = {
+    Name = "management"
+  }
+}
+
+resource "aws_route_table_association" "route_table_public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.internet-gw.id
+}
+
 resource "aws_instance" "dev" {
   ami               = data.aws_ami.ubuntu.id
   availability_zone = "${var.region}a"
   instance_type     = "${var.instance_type}"
-  subnet_id         = data.aws_subnet.coder_public
+  subnet_id         = aws_subnet.public.id
+  associate_public_ip_address = true
 
   user_data = data.coder_workspace.me.transition == "start" ? local.user_data_start : local.user_data_end
   tags = {
