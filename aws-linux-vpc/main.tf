@@ -108,10 +108,10 @@ Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment; filename="userdata.txt"
 
 #!/bin/bash
-sudo -u ${local.linux_user} sh -c '${coder_agent.main.init_script}'
 sudo apt-get update
-sudo apt-get upgrade
-sudo curl -sfL https://get.k3s.io | sh -
+sudo apt-get upgrade -y
+sudo -u ${local.linux_user} sh -c '${coder_agent.main.init_script}'
+
 --//--
 EOT
 
@@ -207,4 +207,11 @@ resource "aws_instance" "dev" {
     # Required if you are using our example policy, see template README
     Coder_Provisioned = "true"
   }
+}
+resource "coder_app" "k3s" {
+  # Access :8080 in the workspace from the Coder dashboard.
+  name     = "k3s"
+  icon     = "https://k3s.io/images/logo-k3s.svg"
+  agent_id = coder_agent.main.id
+  url      = "http://localhost:6443"
 }
