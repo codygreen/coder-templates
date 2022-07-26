@@ -208,10 +208,3 @@ resource "aws_instance" "dev" {
     Coder_Provisioned = "true"
   }
 }
-resource "coder_app" "k3s" {
-  # Access :8080 in the workspace from the Coder dashboard.
-  name     = "k3s"
-  icon     = "https://k3s.io/images/logo-k3s.svg"
-  agent_id = coder_agent.main.id
-  url      = "http://localhost:6443"
-}
