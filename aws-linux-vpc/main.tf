@@ -109,6 +109,9 @@ Content-Disposition: attachment; filename="userdata.txt"
 
 #!/bin/bash
 sudo -u ${local.linux_user} sh -c '${coder_agent.main.init_script}'
+sudo apt-get update
+sudo apt-get upgrade
+sudo curl -sfL https://get.k3s.io | sh -
 --//--
 EOT
 
